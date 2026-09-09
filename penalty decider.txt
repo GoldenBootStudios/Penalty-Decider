@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penalty Decider - World Cup Online</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root {
+            --primary: #0d1b2a;
+            --secondary: #1b263b;
+            --gold: #ffd700;
+            --white: #ffffff;
+            --green: #2ec4b6;
+            --red: #e71d36;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--primary);
+            color: var(--white);
+            font-family: var(--font-family);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 900px;
+            height: 650px;
+            max-width: 100vw;
+            max-height: 100vh;
+            background: linear-gradient(135deg, #0a1128 0%, #001f54 100%);
+            border: 4px solid var(--gold);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .lang-bar {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 20;
+            display: flex;
+            gap: 5px;
+        }
+
+        .lang-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--gold);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .lang-btn.active {
+            background: var(--gold);
+            color: #000;
+            font-weight: bold;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 17, 40, 0.95);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .hidden { display: none !important; }
+
+        h1 {
+            font-size: 2.2rem;
+            color: var(--gold);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        p { font-size: 0.95rem; margin-bottom: 15px; color: #e0e0e0; }
+
+        input, select {
+            width: 280px;
+            padding: 10px;
+            margin: 6px 0;
+            border-radius: 8px;
+            border: 1px solid #3a506b;
+            background: #1c2541;
+            color: #fff;
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        button {
+            background: linear-gradient(45deg, var(--gold), #ffaa00);
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+            margin: 6px;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.5);
+        }
+
+        .menu-box {
+            background: var(--secondary);
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #3a506b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 320px;
+        }
+
+        #scoreboard {
+            height: 110px;
+            background: rgba(13, 27, 42, 0.9);
+            border-bottom: 3px solid var(--gold);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 30px;
+            z-index: 2;
+        }
+
+        .score-team {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 200px;
+        }
+
+        .score-team-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .score-number {
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: var(--gold);
+        }
+
+        .penalty-dots { display: flex; gap: 6px; margin-top: 5px; }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #3a506b;
+            border: 2px solid #1c2541;
+        }
+        .dot.goal { background: var(--green); border-color: var(--green); }
+        .dot.miss { background: var(--red); border-color: var(--red); }
+
+        #match-info { text-align: center; }
+        #stage-display { font-size: 0.8rem; color: var(--gold); font-weight: bold; }
+        #turn-indicator { font-size: 0.85rem; color: #fff; margin-top: 5px; }
+
+        #pitch {
+            flex-grow: 1;
+            position: relative;
+            background: linear-gradient(to bottom, #111 0%, #1a4314 30%, #2d5a27 100%);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        .stadium-bg {
+            position: absolute;
+            top: 0; width: 100%; height: 40%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 8px 8px; opacity: 0.6;
+        }
+
+        #goal {
+            width: 440px; height: 200px;
+            border: 8px solid var(--white); border-bottom: none;
+            position: absolute; bottom: 120px;
+            box-shadow: 0 0 15px rgba(255,255,255,0.3);
+            background: repeating-linear-gradient(0deg, rgba(255,255,255,0.15), rgba(255,255,255,0.15) 1px, transparent 1px, transparent 15px),
+                        repeating-linear-gradient(90deg, rgba(255,255,255,0.15), rgba(255,255,255,0.15) 1px, transparent 1px, transparent 15px);
+        }
+
+        #goalkeeper {
+            width: 50px; height: 70px;
+            background-color: #ff9f1c;
+            border-radius: 8px 8px 0 0;
+            position: absolute; bottom: 120px; left: calc(50% - 25px);
+            transition: all 0.5s ease;
+            z-index: 3; display: flex; justify-content: center; align-items: center;
+        }
+        #goalkeeper::before { content: "🧤"; font-size: 20px; }
+
+        #ball {
+            width: 30px; height: 30px;
+            background: radial-gradient(circle at 10px 10px, #ffffff, #888888);
+            border-radius: 50%;
+            position: absolute; bottom: 30px; left: calc(50% - 15px);
+            transition: all 0.6s ease;
+            z-index: 4; box-shadow: 0 8px 5px rgba(0,0,0,0.5);
+        }
+
+        #controls-panel {
+            position: absolute; bottom: 10px; width: 100%;
+            display: flex; flex-direction: column; align-items: center; gap: 5px; z-index: 5;
+        }
+
+        .bar-container {
+            width: 350px; height: 22px;
+            background: rgba(0,0,0,0.6); border: 2px solid var(--white);
+            border-radius: 11px; position: relative; overflow: hidden;
+        }
+
+        .bar-title { font-size: 0.8rem; font-weight: bold; color: var(--gold); text-transform: uppercase; }
+        .indicator { width: 12px; height: 100%; background: var(--gold); position: absolute; top: 0; left: 0; box-shadow: 0 0 8px var(--gold); }
+
+        #announcement {
+            position: absolute; top: 40%; left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 3.5rem; font-weight: 900; text-shadow: 0 0 20px rgba(0,0,0,0.8);
+            z-index: 8; transition: transform 0.3s ease; pointer-events: none;
+        }
+        #announcement.show { transform: translate(-50%, -50%) scale(1); }
+
+        .status-msg { color: var(--gold); font-weight: bold; margin-bottom: 5px; min-height: 20px; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+
+    <div class="lang-bar">
+        <button class="lang-btn active" data-lang="pt">PT</button>
+        <button class="lang-btn" data-lang="en">EN</button>
+        <button class="lang-btn" data-lang="es">ES</button>
+        <button class="lang-btn" data-lang="ru">RU</button>
+    </div>
+
+    <div id="start-screen" class="screen">
+        <h1>PENALTY DECIDER</h1>
+        <div class="menu-box">
+            <input type="text" id="player-nickname" placeholder="Seu Nickname" maxlength="12">
+            <button id="btn-create-room-menu" data-i18n="createRoomMenu">Criar Sala</button>
+            <button id="btn-join-room-menu" data-i18n="joinRoomMenu">Entrar em Sala</button>
+        </div>
+    </div>
+
+    <div id="create-screen" class="screen hidden">
+        <h1 data-i18n="createRoomTitle">Criar Sala</h1>
+        <div class="menu-box">
+            <input type="text" id="room-name-input" placeholder="Nome da Sala">
+            <select id="stage-select">
+                <option value="32" data-i18n="stage32">16 avos de final (32 Times)</option>
+                <option value="16" data-i18n="stage16">Oitavas de final (16 Times)</option>
+                <option value="8" data-i18n="stage8">Quartas de final (8 Times)</option>
+                <option value="4" data-i18n="stage4">Semifinais (4 Times)</option>
+                <option value="2" data-i18n="stage2">Apenas a Final (2 Times)</option>
+            </select>
+            <button id="btn-confirm-create" data-i18n="confirmCreate">Criar e Aguardar Jogador</button>
+            <button class="btn-back" data-i18n="back">Voltar</button>
+        </div>
+    </div>
+
+    <div id="join-screen" class="screen hidden">
+        <h1 data-i18n="joinRoomTitle">Entrar na Sala</h1>
+        <div class="menu-box">
+            <input type="text" id="join-room-input" placeholder="Nome da Sala">
+            <button id="btn-confirm-join" data-i18n="confirmJoin">Conectar</button>
+            <button class="btn-back" data-i18n="back">Voltar</button>
+        </div>
+    </div>
+
+    <div id="lobby-screen" class="screen hidden">
+        <h1 data-i18n="waitingPlayer">Aguardando Oponente...</h1>
+        <p><span data-i18n="roomName">Sala</span>: <strong id="lobby-room-name" style="color:var(--gold);"></strong></p>
+    </div>
+
+    <div id="end-screen" class="screen hidden">
+        <h1 id="winner-title">CAMPEÃO DO MUNDO!</h1>
+        <p id="final-score">Placar Final: 5 x 4</p>
+        <button id="btn-restart" data-i18n="playAgain">Jogar Novamente</button>
+    </div>
+
+    <div id="scoreboard">
+        <div class="score-team">
+            <div class="score-team-name">🇧🇷 <span id="p1-nick-disp">P1</span></div>
+            <div class="score-number" id="t1-score">0</div>
+            <div class="penalty-dots" id="t1-dots"></div>
+        </div>
+
+        <div id="match-info">
+            <div id="stage-display">FINAL DA COPA</div>
+            <div id="round-display" style="font-weight: bold; font-size: 0.9rem;">Rodada 1 / 5</div>
+            <div id="turn-indicator">Batedor: P1</div>
+        </div>
+
+        <div class="score-team">
+            <div class="score-team-name"><span id="p2-nick-disp">P2</span> 🇦🇷</div>
+            <div class="score-number" id="t2-score">0</div>
+            <div class="penalty-dots" id="t2-dots"></div>
+        </div>
+    </div>
+
+    <div id="pitch">
+        <div class="stadium-bg"></div>
+        <div id="goal"></div>
+        <div id="goalkeeper"></div>
+        <div id="ball"></div>
+
+        <div id="announcement">GOL!</div>
+
+        <div id="controls-panel">
+            <div class="status-msg" id="status-msg">Aguardando...</div>
+            <div class="bar-title" id="bar-title-text">Direção</div>
+            <div class="bar-container">
+                <div class="indicator" id="aim-indicator"></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const I18N = {
+        pt: {
+            nickPlaceholder: "Seu Nickname",
+            createRoomMenu: "Criar Sala",
+            joinRoomMenu: "Entrar em Sala",
+            createRoomTitle: "Criar Sala",
+            joinRoomTitle: "Entrar na Sala",
+            roomNamePlaceholder: "Nome da Sala",
+            stage32: "16 avos de final (32 Times)",
+            stage16: "Oitavas de final (16 Times)",
+            stage8: "Quartas de final (8 Times)",
+            stage4: "Semifinais (4 Times)",
+            stage2: "Apenas a Final (2 Times)",
+            confirmCreate: "Criar e Aguardar Jogador",
+            confirmJoin: "Conectar",
+            back: "Voltar",
+            waitingPlayer: "Aguardando Oponente...",
+            roomName: "Sala",
+            playAgain: "Jogar Novamente",
+            aimDir: "Direção do Chute",
+            height: "Altura do Chute",
+            pressSpaceAim: "Aperte ESPAÇO para Mirar!",
+            pressSpaceHeight: "Aperte ESPAÇO para Altura!",
+            shooting: "Chutando...",
+            goal: "GOL!",
+            miss: "DEFENDEU / FORA!",
+            champion: "É O CAMPEÃO DO MUNDO!",
+            st32: "16 AVOS DE FINAL",
+            st16: "OITAVAS DE FINAL",
+            st8: "QUARTAS DE FINAL",
+            st4: "SEMIFINAL",
+            st2: "FINAL DA COPA"
+        },
+        en: {
+            nickPlaceholder: "Your Nickname",
+            createRoomMenu: "Create Room",
+            joinRoomMenu: "Join Room",
+            createRoomTitle: "Create Room",
+            joinRoomTitle: "Join Room",
+            roomNamePlaceholder: "Room Name",
+            stage32: "Round of 32 (32 Teams)",
+            stage16: "Round of 16 (16 Teams)",
+            stage8: "Quarter-Finals (8 Teams)",
+            stage4: "Semi-Finals (4 Teams)",
+            stage2: "Final Only (2 Teams)",
+            confirmCreate: "Create & Wait Player",
+            confirmJoin: "Connect",
+            back: "Back",
+            waitingPlayer: "Waiting Opponent...",
+            roomName: "Room",
+            playAgain: "Play Again",
+            aimDir: "Aim Direction",
+            height: "Aim Height",
+            pressSpaceAim: "Press SPACE to Lock Aim!",
+            pressSpaceHeight: "Press SPACE to Lock Height!",
+            shooting: "Shooting...",
+            goal: "GOAL!",
+            miss: "SAVED / MISS!",
+            champion: "IS THE WORLD CHAMPION!",
+            st32: "ROUND OF 32",
+            st16: "ROUND OF 16",
+            st8: "QUARTER-FINAL",
+            st4: "SEMI-FINAL",
+            st2: "WORLD CUP FINAL"
+        },
+        es: {
+            nickPlaceholder: "Tu Apodo",
+            createRoomMenu: "Crear Sala",
+            joinRoomMenu: "Unirse a Sala",
+            createRoomTitle: "Crear Sala",
+            joinRoomTitle: "Unirse a Sala",
+            roomNamePlaceholder: "Nombre de la Sala",
+            stage32: "Dieciseisavos (32 Equipos)",
+            stage16: "Octavos de final (16 Equipos)",
+            stage8: "Cuartos de final (8 Equipos)",
+            stage4: "Semifinales (4 Equipos)",
+            stage2: "Solo la Final (2 Equipos)",
+            confirmCreate: "Crear y Esperar Jugador",
+            confirmJoin: "Conectar",
+            back: "Volver",
+            waitingPlayer: "Esperando Rival...",
+            roomName: "Sala",
+            playAgain: "Jugar de Nuevo",
+            aimDir: "Dirección del Tiro",
+            height: "Altura del Tiro",
+            pressSpaceAim: "¡Presiona ESPACIO para Apuntar!",
+            pressSpaceHeight: "¡Presiona ESPACIO para Altura!",
+            shooting: "Disparando...",
+            goal: "¡GOL!",
+            miss: "¡ATAJADO / FUERA!",
+            champion: "¡ES EL CAMPEÓN DEL MUNDO!",
+            st32: "DIECISEISAVOS",
+            st16: "OCTAVOS DE FINAL",
+            st8: "CUARTOS DE FINAL",
+            st4: "SEMIFINAL",
+            st2: "FINAL DE LA COPA"
+        },
+        ru: {
+            nickPlaceholder: "Ваш Никнейм",
+            createRoomMenu: "Создать комнатy",
+            joinRoomMenu: "Войти в комнатy",
+            createRoomTitle: "Создать комнатy",
+            joinRoomTitle: "Войти в комнатy",
+            roomNamePlaceholder: "Название комнаты",
+            stage32: "1/16 финала (32 команды)",
+            stage16: "1/8 финала (16 команд)",
+            stage8: "1/4 финала (8 команд)",
+            stage4: "Полуфинал (4 команды)",
+            stage2: "Только Финал (2 команды)",
+            confirmCreate: "Создать и ждать",
+            confirmJoin: "Подключиться",
+            back: "Назад",
+            waitingPlayer: "Ожидание соперника...",
+            roomName: "Комната",
+            playAgain: "Играть снова",
+            aimDir: "Направление",
+            height: "Высота удара",
+            pressSpaceAim: "Пробел - зафиксировать цель",
+            pressSpaceHeight: "Пробел - зафиксировать высоту",
+            shooting: "Удар...",
+            goal: "ГОЛ!",
+            miss: "МИМО / СЕЙВ!",
+            champion: "ЧЕМПИОН МИРА!",
+            st32: "1/16 ФИНАЛА",
+            st16: "1/8 ФИНАЛА",
+            st8: "1/4 ФИНАЛА",
+            st4: "ПОЛУФИНАЛ",
+            st2: "ФИНАЛ КУБКА"
+        }
+    };
+
+    let currentLang = 'pt';
+    let peer = null;
+    let conn = null;
+    let isHost = false;
+
+    let myNick = "Player";
+    let oppNick = "Opponent";
+
+    let selectedStage = 2;
+    let score1 = 0, score2 = 0;
+    let history1 = [], history2 = [];
+    let currentRound = 1;
+    let isP1Turn = true;
+
+    let kickPhase = 0;
+    let kickDirection = 0, kickHeight = 0, gkJump = 0;
+    let animFrame = null, barPos = 0, barDir = 2.5;
+
+    const aimIndicator = document.getElementById('aim-indicator');
+    const statusMsg = document.getElementById('status-msg');
+    const barTitleText = document.getElementById('bar-title-text');
+    const ball = document.getElementById('ball');
+    const goalkeeper = document.getElementById('goalkeeper');
+    const announcement = document.getElementById('announcement');
+    const stageDisplay = document.getElementById('stage-display');
+
+    function setLanguage(lang, targetBtn) {
+        currentLang = lang;
+        document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+        if (targetBtn) targetBtn.classList.add('active');
+
+        document.getElementById('player-nickname').placeholder = I18N[lang].nickPlaceholder;
+        document.getElementById('room-name-input').placeholder = I18N[lang].roomNamePlaceholder;
+        document.getElementById('join-room-input').placeholder = I18N[lang].roomNamePlaceholder;
+
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (I18N[lang][key]) el.innerText = I18N[lang][key];
+        });
+    }
+
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            setLanguage(e.target.getAttribute('data-lang'), e.target);
+        });
+    });
+
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        if (id) {
+            const sc = document.getElementById(id);
+            if (sc) sc.classList.remove('hidden');
+        }
+    }
+
+    document.querySelectorAll('.btn-back').forEach(btn => {
+        btn.onclick = () => showScreen('start-screen');
+    });
+
+    document.getElementById('btn-create-room-menu').onclick = () => {
+        myNick = document.getElementById('player-nickname').value.trim() || "Player1";
+        showScreen('create-screen');
+    };
+
+    document.getElementById('btn-join-room-menu').onclick = () => {
+        myNick = document.getElementById('player-nickname').value.trim() || "Player
